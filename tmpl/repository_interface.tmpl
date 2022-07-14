@@ -1,0 +1,13 @@
+package repositories
+
+import (
+	"github.com/gabemanfroi/showcaseme/domain/DTO/{{.ModelName}}"
+)
+
+type I{{title .ModelName}}Repository interface {
+	Create(dto *{{.ModelName}}.Create{{title .ModelName}}DTO) *{{.ModelName}}.Read{{title .ModelName}}DTO
+	GetAll() ([]*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
+    GetById(id uint) (*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
+    Delete(id uint) error
+    Update(id uint, dto *{{.ModelName}}.Update{{title .ModelName}}DTO) (*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
+}
