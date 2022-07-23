@@ -1,4 +1,4 @@
-module crud_generator_poc
+module crud_generator
 
 go 1.18
 
