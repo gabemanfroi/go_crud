@@ -5,7 +5,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"crud_generator_poc/app/generate"
+	"github.com/gabemanfroi/crud_generator/app/generate"
 	"github.com/spf13/cobra"
 )
 
