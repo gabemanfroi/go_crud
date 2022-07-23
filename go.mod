@@ -1,4 +1,4 @@
-module github.com/gabemanfroi/crud_generator
+module github.com/gabemanfroi/go_crud
 
 go 1.18
 
