@@ -2,107 +2,99 @@ package repositories
 
 import (
 	"errors"
-	"github.com/gabemanfroi/midgard/domain/DTO/{{  .ModelName }}"
-	"github.com/gabemanfroi/midgard/domain/models"
-	"github.com/gabemanfroi/midgard/infra/db"
 	"gorm.io/gorm"
+	"showcaseme/domain/DTO/{{ .ModelName }}"
+	"showcaseme/domain/models"
+	"showcaseme/infra/db"
 )
 
-type {{ title  .ModelName }}Repository struct {
-	SqlClient *gorm.DB
+type {{ title .ModelName }}Repository struct {
+	sqlClient *gorm.DB
 }
 
-func (repository {{ title  .ModelName }}Repository) Create(dto *{{  .ModelName }}.Create{{ title  .ModelName }}DTO) *{{  .ModelName }}.Read{{ title  .ModelName }}DTO {
-	{{  initials .ModelName }} := &models.{{ title  .ModelName }}{
-		ElasticsearchId:   dto.ElasticsearchId,
-		ElasticsearchName: dto.ElasticsearchName,
-		Name:              dto.Name,
-		Ip:                dto.Ip,
-		UserId:            dto.UserId,
-		CompanyId:         dto.CompanyId,
-		GroupId:           dto.GroupId,
+func Create{{ title .ModelName }}Repository() *{{ title .ModelName }}Repository {
+	return &{{ title .ModelName }}Repository{sqlClient: db.GetSqlInstance()}
+}
+
+func (repository {{ title .ModelName }}Repository) Create(dto *{{ .ModelName }}.Create{{ title .ModelName }}DTO) (*{{ .ModelName }}.Read{{ title .ModelName }}DTO, error) {
+	{{ initials .ModelName }} := models.{{ title .ModelName }}{
+    {{- range $property := .CreateProperties }}
+        {{ $property }}: dto.{{$property}},
+    {{- end}}
 	}
-	repository.SqlClient.Create(&{{  initials .ModelName }})
+	repository.sqlClient.Create(&{{ initials .ModelName }})
 
-	return &{{  .ModelName }}.Read{{ title  .ModelName }}DTO`{`{{ title  .ModelName }}GeneralData: &{{  .ModelName }}.{{ title  .ModelName }}GeneralData{
-		Id:         {{  initials .ModelName }}.ID,
-		Alias:      {{  initials .ModelName }}.ElasticsearchName,
-		Name:       {{  initials .ModelName }}.Name,
-		Ip:         &{{  initials .ModelName }}.Ip,
-		DeviceType: {{  initials .ModelName }}.DeviceType,
-	}}
-}
-
-func Create{{ title  .ModelName }}Repository() *{{ title  .ModelName }}Repository {
-	return &{{ title  .ModelName }}Repository{SqlClient: db.GetSqlInstance()}
-}
-
-func (repository {{ title  .ModelName }}Repository) GetAll() ([]*{{  .ModelName }}.Read{{ title  .ModelName }}DTO, error) {
-	var {{  .ModelName }}s []*models.{{ title  .ModelName }}
-	var {{  .ModelName }}sDTOS []*{{  .ModelName }}.Read{{ title  .ModelName }}DTO
-
-	repository.SqlClient.Find(&{{  .ModelName }}s)
-
-	for _, {{  initials .ModelName }} := range {{  .ModelName }}s {
-		{{  .ModelName }}sDTOS = append({{  .ModelName }}sDTOS, &{{  .ModelName }}.Read{{ title  .ModelName }}DTO`{` title  .ModelName }}GeneralData: &{{  .ModelName }}.{{ title  .ModelName }}GeneralData{
-			Id:         {{  initials .ModelName }}.ID,
-			Alias:      {{  initials .ModelName }}.ElasticsearchName,
-			Name:       {{  initials .ModelName }}.Name,
-			Ip:         &{{  initials .ModelName }}.Ip,
-			DeviceType: {{  initials .ModelName }}.DeviceType,
-		}})
-	}
-	return {{  .ModelName }}sDTOS, nil
-}
-
-func (repository {{ title  .ModelName }}Repository) GetById(id uint) (*{{  .ModelName }}.Read{{ title  .ModelName }}DTO, error) {
-	{{  initials .ModelName }} := &models.{{ title  .ModelName }}{}
-	repository.SqlClient.First({{  initials .ModelName }}, id)
-
-	if {{  initials .ModelName }}.ID == 0 {
-		return &{{  .ModelName }}.Read{{ title  .ModelName }}DTO{}, errors.New("{{  .ModelName }} not found")
+	if {{ initials .ModelName }}.ID == 0 {
+		return nil, errors.New("an error has occured when creating your {{ .ModelName }}, verify")
 	}
 
-	return &{{  .ModelName }}.Read{{ title  .ModelName }}DTO`{` title  .ModelName }}GeneralData: &{{  .ModelName }}.{{ title  .ModelName }}GeneralData{
-		Id:         {{  initials .ModelName }}.ID,
-		Alias:      {{  initials .ModelName }}.ElasticsearchName,
-		Name:       {{  initials .ModelName }}.Name,
-		Ip:         &{{  initials .ModelName }}.Ip,
-		DeviceType: {{  initials .ModelName }}.DeviceType,
-	}}, nil
+	created{{ title .ModelName }}, _ := repository.GetById({{ initials .ModelName }}.ID)
+
+	return created{{ title .ModelName }}, nil
 }
 
-func (repository {{ title  .ModelName }}Repository) Delete(id uint) error {
-	var {{  initials .ModelName }} models.{{ title  .ModelName }}
-	repository.SqlClient.Find(&{{  initials .ModelName }}, id)
-	if {{  initials .ModelName }}.ID == 0 {
-		return errors.New("{{  .ModelName }} not found")
+func (repository {{ title .ModelName }}Repository) GetAll() ([]*{{ .ModelName }}.Read{{ title .ModelName }}DTO, error) {
+	var {{ .ModelName }}s []*models.{{ title .ModelName }}
+	var {{ .ModelName }}DTOs []*{{ .ModelName }}.Read{{ title .ModelName }}DTO
+
+	repository.sqlClient.Find(&{{ .ModelName }}s)
+
+	for _, {{ initials .ModelName }} := range {{ .ModelName }}s {
+		{{ .ModelName }}DTOs = append({{ .ModelName }}DTOs, &{{ .ModelName }}.Read{{ title .ModelName }}DTO{})
 	}
-	repository.SqlClient.Delete(&{{  initials .ModelName }})
+
+	return {{ .ModelName }}DTOs, nil
+}
+
+func (repository {{ title .ModelName }}Repository) GetById(id uint) (*{{ .ModelName }}.Read{{ title .ModelName }}DTO, error) {
+	var {{ initials .ModelName }} *models.{{ title .ModelName }}
+
+	repository.sqlClient.Find(&{{ initials .ModelName }}, id)
+
+	if {{ initials .ModelName }}.ID == 0 {
+		return nil, errors.New("{{ .ModelName }} not found")
+	}
+
+	return &{{ .ModelName }}.Read{{ title .ModelName }}DTO{
+    {{- range $property := .ReadProperties }}
+        {{ $property }}: {{ initials $.ModelName }}.{{$property}},
+    {{- end}}
+	}, nil
+}
+
+func (repository {{ title .ModelName }}Repository) Delete(id uint) error {
+	var {{ initials .ModelName }} models.{{ title .ModelName }}
+	repository.sqlClient.Find(&{{ initials .ModelName }}, id)
+	if {{ initials .ModelName }}.ID == 0 {
+		return errors.New("{{ .ModelName }} not found")
+	}
+	repository.sqlClient.Delete(&{{ initials .ModelName }})
 	return nil
 }
 
-func (repository {{ title  .ModelName }}Repository) Update(id uint, dto *{{  .ModelName }}.Update{{ title  .ModelName }}DTO) (*{{  .ModelName }}.Read{{ title  .ModelName }}DTO, error) {
-	var {{  initials .ModelName }} models.{{ title  .ModelName }}
-	repository.SqlClient.Find(&{{  initials .ModelName }}, id)
-	if {{  initials .ModelName }}.ID == 0 {
-		return &{{  .ModelName }}.Read{{ title  .ModelName }}DTO{}, errors.New("{{  .ModelName }} not found")
+func (repository {{ title .ModelName }}Repository) Update(id uint, dto *{{ .ModelName }}.Update{{ title .ModelName }}DTO) (*{{ .ModelName }}.Read{{ title .ModelName }}DTO, error) {
+	var {{ initials .ModelName }} models.{{ title .ModelName }}
+	
+	repository.sqlClient.Find(&{{ initials .ModelName }}, id)
+
+	if {{ initials .ModelName }}.ID == 0 {
+		return nil, errors.New("{{ .ModelName }} not found")
 	}
-	update{{ title  .ModelName }}ValuesFromDTO(&{{  initials .ModelName }}, dto)
-	repository.SqlClient.Save(&{{  initials .ModelName }})
-	return &{{  .ModelName }}.Read{{ title  .ModelName }}DTO`{` title  .ModelName }}GeneralData: &{{  .ModelName }}.{{ title  .ModelName }}GeneralData{
-		Id:         {{  initials .ModelName }}.ID,
-		Alias:      {{  initials .ModelName }}.ElasticsearchName,
-		Name:       {{  initials .ModelName }}.Name,
-		Ip:         &{{  initials .ModelName }}.Ip,
-		DeviceType: {{  initials .ModelName }}.DeviceType,
-	}}, nil
+
+	update{{ title .ModelName }}ValuesFromDTO(&{{ initials .ModelName }}, dto)
+	repository.sqlClient.Save(&{{ initials .ModelName }})
+
+	updated{{ title .ModelName }}, _ := repository.GetById({{ initials .ModelName }}.ID)
+
+	return updated{{ title .ModelName }}, nil
 }
 
-func update{{ title  .ModelName }}ValuesFromDTO(model *models.{{ title  .ModelName }}, dto *{{  .ModelName }}.Update{{ title  .ModelName }}DTO) {
-{{range $property := .ModelProperties}}
-    if dto.{{$property}} != nil{
-        model.{{$property}} = *dto.{{$property}}
+func update{{ title .ModelName }}ValuesFromDTO(model *models.{{ title .ModelName }}, dto *{{ .ModelName }}.Update{{ title .ModelName }}DTO) {
+    {{- range $property := .UpdateProperties }}
+    if dto.{{ $property }} != nil{
+        model.{{ $property }} = *dto.{{ $property }}
     }
-{{end}}
+    {{- end }}
 }
+
+

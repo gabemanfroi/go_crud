@@ -1,11 +1,11 @@
 package services
 
 import (
-	"github.com/gabemanfroi/showcaseme/domain/DTO/{{.ModelName}}"
+	"showcaseme/domain/DTO/{{.ModelName}}"
 )
 
 type I{{title .ModelName}}Service interface {
-	Create(dto *{{.ModelName}}.Create{{title .ModelName}}DTO) *{{.ModelName}}.Read{{title .ModelName}}DTO
+	Create(dto *{{.ModelName}}.Create{{title .ModelName}}DTO) (*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
 	GetAll() ([]*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
     GetById(id uint) (*{{.ModelName}}.Read{{title .ModelName}}DTO, error)
     Delete(id uint) error

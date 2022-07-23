@@ -5,19 +5,21 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Masterminds/sprig"
-	"go/format"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 )
 
 type Data struct {
-	ModelName       string
-	ModelProperties []string
+	ModelName        string
+	UpdateProperties []string
+	CreateProperties []string
+	ReadProperties   []string
 }
 
 func missing(a, b []string) string {
@@ -38,7 +40,7 @@ func Generate(modelName string) {
 	if err != nil {
 		log.Fatal("%s", err.Error())
 	}
-	files, _ := ioutil.ReadDir(directory + "/DTO/" + modelName)
+	files, _ := ioutil.ReadDir(directory + "/domain/DTO/" + modelName)
 
 	necessaryDtos := []string{"create", "read", "update"}
 
@@ -56,33 +58,91 @@ func Generate(modelName string) {
 		log.Fatalf("Missing %sDTO for [%s], exiting.", cases.Title(language.BrazilianPortuguese).String(missing(foundFiles, necessaryDtos)), modelName)
 	}
 
-	content, err := ioutil.ReadFile(fmt.Sprintf("%s/DTO/%s/update.go", directory, modelName))
+	data := Data{
+		ModelName:        modelName,
+		UpdateProperties: getUpdateProperties(modelName, err, directory),
+		CreateProperties: getCreateProperties(modelName, err, directory),
+		ReadProperties:   getReadProperties(modelName, err, directory),
+	}
+
+	processTemplate("repository.tmpl", fmt.Sprintf("%s/infra/db/repositories/%s_repository.go", directory, data.ModelName), data)
+	processTemplate("repository_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/repositories/%s_repository_interface.go", directory, data.ModelName), data)
+	processTemplate("controller_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/controllers/%s_controller_interface.go", directory, data.ModelName), data)
+	processTemplate("controller.tmpl", fmt.Sprintf("%s/application/controllers/%s_controller.go", directory, data.ModelName), data)
+	processTemplate("service_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/services/%s_service_interface.go", directory, data.ModelName), data)
+	processTemplate("service.tmpl", fmt.Sprintf("%s/domain/services/%s_service.go", directory, data.ModelName), data)
+}
+
+func getUpdateProperties(modelName string, err error, directory string) []string {
+	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/update.go", directory, modelName))
 
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
+	return getProperties(content)
+}
+
+func getReadProperties(modelName string, err error, directory string) []string {
+	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/read.go", directory, modelName))
+
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	return getProperties(content)
+}
+
+func getCreateProperties(modelName string, err error, directory string) []string {
+	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/create.go", directory, modelName))
+
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	return getProperties(content)
+}
+
+func getProperties(content []byte) []string {
+	newContent := removeBracketsFromContent(content)
+	return getPropertiesFromLines(getLines(newContent))
+}
+
+func getPropertiesFromLines(lines []string) []string {
+	var properties []string
+	for _, line := range lines {
+		word := extractPropertyFromLine(line)
+		properties = getOnlyNonEmptyWords(word, properties)
+	}
+	return properties
+}
+
+func getOnlyNonEmptyWords(word string, properties []string) []string {
+	if word != "" {
+		properties = append(properties, word)
+	}
+	return properties
+}
+
+func extractPropertyFromLine(line string) string {
+	re := regexp.MustCompile("\t[^\\s]+")
+
+	match := re.FindStringSubmatch(line)
+	if match != nil {
+		return strings.Replace(match[0], "\t", "", -1)
+	}
+	return ""
+}
+
+func getLines(newContent string) []string {
+	lines := strings.Split(newContent, "\n")
+	return lines
+}
+
+func removeBracketsFromContent(content []byte) string {
 	newContent := strings.Split(string(content), "{")[1]
 	newContent = strings.Split(newContent, "}")[0]
-
-	lines := strings.Split(newContent, "\n")
-
-	var properties []string
-
-	for _, line := range lines {
-		properties = append(properties, strings.Replace(strings.Split(line, "*")[0], "\t", "", -1))
-	}
-
-	data := Data{
-		ModelName:       modelName,
-		ModelProperties: properties,
-	}
-	processTemplate("repository.tmpl", fmt.Sprintf("./repositories/%s_repository.go", data.ModelName), data)
-	/*processTemplate("repository_interface.tmpl", fmt.Sprintf("./repositories/%s_repository_interface.go", data.ModelName), data)
-	processTemplate("controller_interface.tmpl", fmt.Sprintf("./controllers/%s_controller_interface.go", data.ModelName), data)
-	processTemplate("controller.tmpl", fmt.Sprintf("./controllers/%s_controller.go", data.ModelName), data)
-	processTemplate("service_interface.tmpl", fmt.Sprintf("./services/%s_service_interface.go", data.ModelName), data)
-	processTemplate("service.tmpl", fmt.Sprintf("./services/%s_service.go", data.ModelName), data)*/
+	return newContent
 }
 
 func processTemplate(fileName string, outputFile string, data Data) {
@@ -95,14 +155,10 @@ func processTemplate(fileName string, outputFile string, data Data) {
 		log.Fatalf("Unable to parse data into template: %v\n", err)
 	}
 
-	formatted, err := format.Source(processed.Bytes())
-	if err != nil {
-		log.Fatalf("Could not format processed template: %v\n", err)
-	}
 	outputPath := outputFile
 	fmt.Println("Writing file: ", outputPath)
 	f, _ := os.Create(outputPath)
 	w := bufio.NewWriter(f)
-	w.WriteString(string(formatted))
+	w.WriteString(processed.String())
 	w.Flush()
 }
