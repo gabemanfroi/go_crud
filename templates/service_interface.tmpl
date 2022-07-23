@@ -1,0 +1,13 @@
+package services
+
+import (
+	"showcaseme/domain/DTO/{{ .SnakeCasedModelName }}"
+)
+
+type I{{.PascalCasedModelName}}Service interface {
+	Create(dto *{{.ModelName}}.Create{{.PascalCasedModelName}}DTO) (*{{.ModelName}}.Read{{.PascalCasedModelName}}DTO, error)
+	GetAll() ([]*{{.ModelName}}.Read{{.PascalCasedModelName}}DTO, error)
+    GetById(id uint) (*{{.ModelName}}.Read{{.PascalCasedModelName}}DTO, error)
+    Delete(id uint) error
+    Update(id uint, dto *{{.ModelName}}.Update{{.PascalCasedModelName}}DTO) (*{{.ModelName}}.Read{{.PascalCasedModelName}}DTO, error)
+}

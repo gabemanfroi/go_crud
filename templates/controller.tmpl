@@ -1,0 +1,89 @@
+package controllers
+
+import (
+	"encoding/json"
+	"showcaseme/domain/DTO/{{ .SnakeCasedModelName }}"
+	"showcaseme/domain/interfaces/services"
+	"showcaseme/internal/utils"
+	"github.com/gofiber/fiber/v2"
+	"github.com/golobby/container/v3"
+	"strconv"
+)
+
+type {{ .PascalCasedModelName }}Controller struct {
+	service services.I{{ .PascalCasedModelName }}Service
+}
+
+func Create{{ .PascalCasedModelName }}Controller() *{{ .PascalCasedModelName }}Controller {
+    return &{{ .PascalCasedModelName }}Controller{service: get{{ .PascalCasedModelName }}Service()}
+}
+
+func get{{ .PascalCasedModelName }}Service() services.I{{ .PascalCasedModelName }}Service {
+	var injector services.I{{ .PascalCasedModelName }}Service
+	utils.Check(container.Resolve(&injector), "Error while retrieving {{ .PascalCasedModelName }}Service instance ")
+	return injector
+}
+
+func (controller {{ .PascalCasedModelName }}Controller) Create(c *fiber.Ctx) error {
+	var dto {{ .ModelName }}.Create{{ .PascalCasedModelName }}DTO
+	if err := c.BodyParser(&dto); err != nil {
+		return err
+	}
+
+	created{{.PascalCasedModelName}}, err := controller.service.Create(&dto)
+
+	if err != nil {
+    		return c.Status(400).JSON(err.Error())
+    }
+
+	return c.Status(200).JSON(created{{.PascalCasedModelName}})
+}
+
+func (controller {{ .PascalCasedModelName }}Controller) GetAll(c *fiber.Ctx) error {
+	{{ .CamelCasedModelName }}s, err := controller.service.GetAll()
+	if err != nil {
+		return err
+	}
+	utils.Check(json.NewEncoder(c).Encode(&{{ .CamelCasedModelName }}s), "failed to encode {{ .CamelCasedModelName }}s")
+	return c.Status(200).JSON({{ .CamelCasedModelName }}s)
+}
+
+func (controller {{ .PascalCasedModelName }}Controller) GetById(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+
+	utils.Check(err, "failed to get {{ .ModelName }} id")
+
+	{{.ModelNameAbbreviation}}, err := controller.service.GetById(uint(id))
+	if err != nil {
+		return c.Status(404).JSON(err.Error())
+	}
+	utils.Check(json.NewEncoder(c).Encode(&{{.ModelNameAbbreviation}}), "failed to encode {{ .ModelName }}")
+	return c.Status(200).JSON({{.ModelNameAbbreviation}})
+}
+
+func (controller {{ .PascalCasedModelName }}Controller) Delete(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+
+	utils.Check(err, "failed to get {{ .ModelName }} id")
+	err = controller.service.Delete(uint(id))
+	if err != nil {
+		return c.Status(404).JSON(err.Error())
+	}
+
+	return c.Status(204).JSON("user deleted")
+}
+
+func (controller {{ .PascalCasedModelName }}Controller) Update(c *fiber.Ctx) error {
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+
+	utils.Check(err, "failed to get {{ .ModelName }} id")
+	var dto {{ .ModelName }}.Update{{ .PascalCasedModelName }}DTO
+	if err := c.BodyParser(&dto); err != nil {
+		return err
+	}
+	updated{{ .PascalCasedModelName }}, err := controller.service.Update(uint(id), &dto)
+	if err != nil {
+		return c.Status(404).JSON(err.Error())
+	}
+	return c.Status(200).JSON(updated{{ .PascalCasedModelName }})
+}

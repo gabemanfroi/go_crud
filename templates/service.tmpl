@@ -1,0 +1,40 @@
+package services
+
+import (
+	"showcaseme/domain/DTO/{{ .SnakeCasedModelName }}"
+	"showcaseme/domain/interfaces/repositories"
+	"showcaseme/internal/utils"
+	"github.com/golobby/container/v3"
+)
+
+type {{ .PascalCasedModelName }}Service struct {
+	repository repositories.I{{ .PascalCasedModelName }}Repository
+}
+
+func Create{{ .PascalCasedModelName }}Service() *{{ .PascalCasedModelName }}Service { return &{{ .PascalCasedModelName }}Service{repository: get{{ .PascalCasedModelName }}Service()} }
+
+func (service {{ .PascalCasedModelName }}Service) Create(dto *{{ .ModelName }}.Create{{ .PascalCasedModelName }}DTO) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	return service.repository.Create(dto)
+}
+
+func (service {{ .PascalCasedModelName }}Service) GetAll() ([]*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	return service.repository.GetAll()
+}
+
+func (service {{ .PascalCasedModelName }}Service) GetById(id uint) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	return service.repository.GetById(id)
+}
+
+func (service {{ .PascalCasedModelName }}Service) Delete(id uint) error {
+	return service.repository.Delete(id)
+}
+
+func (service {{ .PascalCasedModelName }}Service) Update(id uint, dto *{{ .ModelName }}.Update{{ .PascalCasedModelName }}DTO) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	return service.repository.Update(id, dto)
+}
+
+func get{{ .PascalCasedModelName }}Service() repositories.I{{ .PascalCasedModelName }}Repository {
+	var injector repositories.I{{ .PascalCasedModelName }}Repository
+	utils.Check(container.Resolve(&injector), "Error while retrieving {{ .PascalCasedModelName }}Repository instance")
+	return injector
+}

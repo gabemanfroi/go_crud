@@ -1,0 +1,26 @@
+package routes
+
+import (
+	schema_validation_middleware "github.com/gabemanfroi/schema-validation-middleware"
+	"github.com/gofiber/fiber/v2"
+	"github.com/golobby/container/v3"
+	"showcaseme/domain/interfaces/controllers"
+	"showcaseme/infra/validators/{{ .SnakeCasedModelName }}"
+	"showcaseme/internal/utils"
+)
+
+func Register{{ .PascalCasedModelName }}Routes(router fiber.Router) {
+	var controller controllers.I{{ .PascalCasedModelName }}Controller
+
+	utils.Check(container.Resolve(&controller), "Failed to create {{ .CamelCasedModelName }}Controller instance...")
+
+	router.Post("/{{ .SnakeCasedModelName }}s", func(c *fiber.Ctx) error {
+		return schema_validation_middleware.ValidateSchema(c, {{ .SnakeCasedModelName }}.Create{{ .PascalCasedModelName }}Validator{})
+	}, controller.Create)
+	router.Get("/{{ .SnakeCasedModelName }}s", controller.GetAll)
+	router.Get("/{{ .SnakeCasedModelName }}s/:id", controller.GetById)
+	router.Delete("/{{ .SnakeCasedModelName }}s/:id", controller.Delete)
+	router.Patch("/{{ .SnakeCasedModelName }}s/:id", func(c *fiber.Ctx) error {
+		return schema_validation_middleware.ValidateSchema(c, {{ .SnakeCasedModelName }}.Update{{ .PascalCasedModelName }}Validator{})
+	}, controller.Update)
+}

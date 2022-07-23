@@ -1,0 +1,104 @@
+package repositories
+
+import (
+	"errors"
+	"gorm.io/gorm"
+	"showcaseme/domain/DTO/{{ .SnakeCasedModelName }}"
+	"showcaseme/domain/models"
+	"showcaseme/infra/db"
+)
+
+type {{ .PascalCasedModelName }}Repository struct {
+	sqlClient *gorm.DB
+}
+
+func Create{{ .PascalCasedModelName }}Repository() *{{ .PascalCasedModelName }}Repository {
+	return &{{ .PascalCasedModelName }}Repository{sqlClient: db.GetSqlInstance()}
+}
+
+func (repository {{ .PascalCasedModelName }}Repository) Create(dto *{{ .ModelName }}.Create{{ .PascalCasedModelName }}DTO) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	{{ .ModelNameAbbreviation }} := models.{{ .PascalCasedModelName }}{
+    {{- range $property := .CreateProperties }}
+        {{ $property }}: dto.{{$property}},
+    {{- end}}
+	}
+	repository.sqlClient.Create(&{{ .ModelNameAbbreviation }})
+
+	if {{ .ModelNameAbbreviation }}.ID == 0 {
+		return nil, errors.New("an error has occured when creating your {{ .ModelName }}, verify")
+	}
+
+	created{{ .CamelCasedModelName }}, _ := repository.GetById({{ .ModelNameAbbreviation }}.ID)
+
+	return created{{ .CamelCasedModelName }}, nil
+}
+
+func (repository {{ .PascalCasedModelName }}Repository) GetAll() ([]*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	var {{ .CamelCasedModelName }}s []*models.{{ .PascalCasedModelName }}
+	var {{ .CamelCasedModelName }}DTOs []*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO
+
+	repository.sqlClient.Find(&{{ .CamelCasedModelName }}s)
+
+	for _, {{ .ModelNameAbbreviation }} := range {{ .CamelCasedModelName }}s {
+		{{ .CamelCasedModelName }}DTOs = append({{ .CamelCasedModelName }}DTOs, &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
+		    {{- range $property := .ReadProperties }}
+                {{ $property }}: {{ initials $.ModelName }}.{{$property}},
+            {{- end}}
+		})
+	}
+
+	return {{ .CamelCasedModelName }}DTOs, nil
+}
+
+func (repository {{ .PascalCasedModelName }}Repository) GetById(id uint) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	var {{ .ModelNameAbbreviation }} *models.{{ .PascalCasedModelName }}
+
+	repository.sqlClient.Find(&{{ .ModelNameAbbreviation }}, id)
+
+	if {{ .ModelNameAbbreviation }}.ID == 0 {
+		return nil, errors.New("{{ .ModelName }} not found")
+	}
+
+	return &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
+    {{- range $property := .ReadProperties }}
+        {{ $property }}: {{ initials $.ModelName }}.{{$property}},
+    {{- end}}
+	}, nil
+}
+
+func (repository {{ .PascalCasedModelName }}Repository) Delete(id uint) error {
+	var {{ .ModelNameAbbreviation }} models.{{ .PascalCasedModelName }}
+	repository.sqlClient.Find(&{{ .ModelNameAbbreviation }}, id)
+	if {{ .ModelNameAbbreviation }}.ID == 0 {
+		return errors.New("{{ .ModelName }} not found")
+	}
+	repository.sqlClient.Delete(&{{ .ModelNameAbbreviation }})
+	return nil
+}
+
+func (repository {{ .PascalCasedModelName }}Repository) Update(id uint, dto *{{ .ModelName }}.Update{{ .PascalCasedModelName }}DTO) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
+	var {{ .ModelNameAbbreviation }} models.{{ .PascalCasedModelName }}
+	
+	repository.sqlClient.Find(&{{ .ModelNameAbbreviation }}, id)
+
+	if {{ .ModelNameAbbreviation }}.ID == 0 {
+		return nil, errors.New("{{ .ModelName }} not found")
+	}
+
+	update{{ .PascalCasedModelName }}ValuesFromDTO(&{{ .ModelNameAbbreviation }}, dto)
+	repository.sqlClient.Save(&{{ .ModelNameAbbreviation }})
+
+	updated{{ .PascalCasedModelName }}, _ := repository.GetById({{ .ModelNameAbbreviation }}.ID)
+
+	return updated{{ .PascalCasedModelName }}, nil
+}
+
+func update{{ .PascalCasedModelName }}ValuesFromDTO(model *models.{{ .PascalCasedModelName }}, dto *{{ .ModelName }}.Update{{ .PascalCasedModelName }}DTO) {
+    {{- range $property := .UpdateProperties }}
+    if dto.{{ $property }} != nil{
+        model.{{ $property }} = *dto.{{ $property }}
+    }
+    {{- end }}
+}
+
+
