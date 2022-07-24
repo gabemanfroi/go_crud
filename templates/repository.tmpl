@@ -18,8 +18,8 @@ func Create{{ .PascalCasedModelName }}Repository() *{{ .PascalCasedModelName }}R
 
 func (repository {{ .PascalCasedModelName }}Repository) Create(dto *{{ .ModelName }}.Create{{ .PascalCasedModelName }}DTO) (*{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO, error) {
 	{{ .ModelNameAbbreviation }} := models.{{ .PascalCasedModelName }}{
-    {{- range $property := .CreateProperties }}
-        {{ $property }}: dto.{{$property}},
+    {{- range $property := .CreateDTOProperties }}
+        {{ $property.Name }}: dto.{{$property.Name}},
     {{- end}}
 	}
 	repository.sqlClient.Create(&{{ .ModelNameAbbreviation }})
@@ -41,7 +41,7 @@ func (repository {{ .PascalCasedModelName }}Repository) GetAll() ([]*{{ .ModelNa
 
 	for _, {{ .ModelNameAbbreviation }} := range {{ .CamelCasedModelName }}s {
 		{{ .CamelCasedModelName }}DTOs = append({{ .CamelCasedModelName }}DTOs, &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
-		    {{- range $property := .ReadProperties }}
+		    {{- range $property :=  .ReadDTOProperties }}
                 {{ $property }}: {{ initials $.ModelName }}.{{$property}},
             {{- end}}
 		})
@@ -60,8 +60,8 @@ func (repository {{ .PascalCasedModelName }}Repository) GetById(id uint) (*{{ .M
 	}
 
 	return &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
-    {{- range $property := .ReadProperties }}
-        {{ $property }}: {{ initials $.ModelName }}.{{$property}},
+    {{- range $property := .ReadDTOProperties }}
+        {{ $property }}: {{ .ModelNameAbbreviation }}.{{$property}},
     {{- end}}
 	}, nil
 }
@@ -94,9 +94,9 @@ func (repository {{ .PascalCasedModelName }}Repository) Update(id uint, dto *{{ 
 }
 
 func update{{ .PascalCasedModelName }}ValuesFromDTO(model *models.{{ .PascalCasedModelName }}, dto *{{ .ModelName }}.Update{{ .PascalCasedModelName }}DTO) {
-    {{- range $property := .UpdateProperties }}
-    if dto.{{ $property }} != nil{
-        model.{{ $property }} = *dto.{{ $property }}
+    {{- range $property := .UpdateDTOProperties }}
+    if dto.{{ $property.Name }} != nil{
+        model.{{ $property.Name }} = *dto.{{ $property.Name }}
     }
     {{- end }}
 }

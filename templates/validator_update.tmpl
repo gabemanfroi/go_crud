@@ -1,0 +1,7 @@
+package {{ .SnakeCasedModelName }}
+
+type Update{{ .PascalCasedModelName }}Validator struct {
+{{- range $property :=  .UpdateValidatorProperties }}
+	{{$property.Name}}  {{$property.DataType}} {{$property.ValidateString}}
+{{- end}}
+}

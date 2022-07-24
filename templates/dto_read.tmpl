@@ -1,0 +1,8 @@
+package {{ .SnakeCasedModelName }}
+
+type Read{{ .PascalCasedModelName }}DTO struct {
+	ID       uint   `json:"id"`
+{{- range $property := .ReadDTOProperties }}
+    {{$property.Name}}  {{$property.DataType}} {{$property.JsonString}}
+{{- end}}
+}

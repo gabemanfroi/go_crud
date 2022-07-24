@@ -6,25 +6,25 @@ import (
 	"embed"
 	"fmt"
 	"github.com/Masterminds/sprig"
-	"github.com/gabemanfroi/go_crud/internal/generate/validations"
+	"github.com/gabemanfroi/go_crud/internal/utils"
 	"html/template"
 	"io/fs"
-	"io/ioutil"
-	"log"
 	"os"
-	"regexp"
 	"strings"
 )
 
-type Data struct {
-	CamelCasedModelName   string
-	ModelNameAbbreviation string
-	PascalCasedModelName  string
-	SnakeCasedModelName   string
-	ModelName             string
-	UpdateProperties      []string
-	CreateProperties      []string
-	ReadProperties        []string
+type TemplateData struct {
+	CamelCasedModelName       string
+	ModelNameAbbreviation     string
+	PascalCasedModelName      string
+	SnakeCasedModelName       string
+	ModelName                 string
+	UpdateDTOProperties       []DTOProperty
+	CreateDTOProperties       []DTOProperty
+	ReadDTOProperties         []DTOProperty
+	CreateValidatorProperties []ValidatorProperty
+	UpdateValidatorProperties []ValidatorProperty
+	ModelProperties           []ModelProperty
 }
 
 const (
@@ -37,34 +37,18 @@ var (
 )
 
 func Process(modelName string) {
-	directory := getWorkingDirectory()
-	validations.CheckIfModelExists(modelName, directory)
-	validations.CheckIfModelHasAllDtos(modelName, directory)
-	validations.CheckIfModelHasAllValidators(modelName, directory)
-
 	loadTemplates()
-	data := createData(modelName, directory)
-	processTemplates(directory, data)
+	processTemplates(utils.GetWorkingDirectory(), createTemplateData(modelName))
 }
 
-func getWorkingDirectory() string {
-	directory, err := os.Getwd()
-	if err != nil {
-		log.Fatal("%s", err.Error())
-	}
-	return directory
-}
-
-func loadTemplates() error {
+func loadTemplates() {
 	templates = make(map[string]*template.Template)
 
 	tmplFiles, err := fs.ReadDir(TemplateFs, templatesDir)
-	if err != nil {
-		return err
-	}
+
+	utils.Check(err, "failed to load templates")
 
 	initializeTemplatesMap(tmplFiles)
-	return nil
 }
 
 func initializeTemplatesMap(tmplFiles []fs.DirEntry) {
@@ -77,118 +61,104 @@ func initializeTemplatesMap(tmplFiles []fs.DirEntry) {
 	}
 }
 
-func processTemplates(directory string, data Data) {
-	processTemplate("repository_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/repositories/%s_repository_interface.go", directory, data.ModelName), data)
-	processTemplate("repository.tmpl", fmt.Sprintf("%s/infra/db/repositories/%s_repository.go", directory, data.ModelName), data)
-	processTemplate("service_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/services/%s_service_interface.go", directory, data.ModelName), data)
-	processTemplate("service.tmpl", fmt.Sprintf("%s/domain/services/%s_service.go", directory, data.ModelName), data)
-	processTemplate("controller_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/controllers/%s_controller_interface.go", directory, data.ModelName), data)
-	processTemplate("controller.tmpl", fmt.Sprintf("%s/application/controllers/%s_controller.go", directory, data.ModelName), data)
+func createTemplateData(modelName string) TemplateData {
+	var data TemplateData
+
+	data.ModelProperties = getModelProperties(modelName)
+	data.CreateDTOProperties = getCreateDTOProperties(modelName, data.ModelProperties)
+	data.UpdateDTOProperties = getUpdateDTOProperties(modelName, data.ModelProperties)
+	data.ReadDTOProperties = getReadDTOProperties(modelName, data.ModelProperties)
+	data.CreateValidatorProperties = getCreateValidatorProperties(modelName, data.ModelProperties)
+	data.UpdateValidatorProperties = getUpdateValidatorProperties(modelName, data.ModelProperties)
+	data.PascalCasedModelName = GetPascalCasedModelName(modelName)
+	data.CamelCasedModelName = GetCamelCasedModelName(modelName)
+	data.SnakeCasedModelName = modelName
+	data.ModelNameAbbreviation = modelName[0:1]
+	data.ModelName = modelName
+
+	return data
+}
+
+func processTemplates(directory string, data TemplateData) {
+	processModel(directory, data)
+	processDTOs(data)
+	processValidators(data)
+	processRepositories(directory, data)
+	processServices(directory, data)
+	processControllers(directory, data)
+	processRoutes(directory, data)
+}
+
+func processValidators(data TemplateData) {
+	validatorsDir := fmt.Sprintf("%s/infra/validators/%s", utils.GetWorkingDirectory(), data.ModelName)
+	utils.CreateDirectoryIfNotExists(validatorsDir)
+
+	if data.CreateValidatorProperties != nil {
+		processTemplate("validator_create.tmpl", fmt.Sprintf("%s/create.go", validatorsDir), data)
+	}
+	if data.UpdateValidatorProperties != nil {
+		processTemplate("validator_update.tmpl", fmt.Sprintf("%s/update.go", validatorsDir), data)
+	}
+}
+
+func processModel(directory string, data TemplateData) {
+	if data.ModelProperties != nil {
+		processTemplate("model.tmpl", fmt.Sprintf("%s/domain/models/%s.go", directory, data.ModelName), data)
+	}
+}
+
+func processDTOs(data TemplateData) {
+	dtosDir := fmt.Sprintf("%s/domain/DTO/%s", utils.GetWorkingDirectory(), data.ModelName)
+	utils.CreateDirectoryIfNotExists(dtosDir)
+	if data.UpdateDTOProperties != nil {
+		processTemplate("dto_update.tmpl", fmt.Sprintf("%s/update.go", dtosDir), data)
+	}
+	if data.ReadDTOProperties != nil {
+		processTemplate("dto_read.tmpl", fmt.Sprintf("%s/read.go", dtosDir), data)
+	}
+	if data.CreateDTOProperties != nil {
+		processTemplate("dto_create.tmpl", fmt.Sprintf("%s/create.go", dtosDir), data)
+	}
+}
+
+func processRoutes(directory string, data TemplateData) {
 	processTemplate("route.tmpl", fmt.Sprintf("%s/application/routes/%s_routes.go", directory, data.ModelName), data)
 }
 
-func createData(modelName string, directory string) Data {
-	return Data{
-		PascalCasedModelName:  validations.PascalizeModelName(modelName),
-		CamelCasedModelName:   validations.CamelizeModelName(modelName),
-		SnakeCasedModelName:   modelName,
-		ModelNameAbbreviation: modelName[0:1],
-		ModelName:             modelName,
-		UpdateProperties:      getUpdateProperties(modelName, directory),
-		CreateProperties:      getCreateProperties(modelName, directory),
-		ReadProperties:        getReadProperties(modelName, directory),
-	}
+func processControllers(directory string, data TemplateData) {
+	processTemplate("controller_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/controllers/%s_controller_interface.go", directory, data.ModelName), data)
+	processTemplate("controller.tmpl", fmt.Sprintf("%s/application/controllers/%s_controller.go", directory, data.ModelName), data)
 }
 
-func getUpdateProperties(modelName string, directory string) []string {
-
-	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/update.go", directory, modelName))
-
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	return getProperties(content)
+func processServices(directory string, data TemplateData) {
+	processTemplate("service_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/services/%s_service_interface.go", directory, data.ModelName), data)
+	processTemplate("service.tmpl", fmt.Sprintf("%s/domain/services/%s_service.go", directory, data.ModelName), data)
 }
 
-func getReadProperties(modelName string, directory string) []string {
-	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/read.go", directory, modelName))
-
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	return getProperties(content)
+func processRepositories(directory string, data TemplateData) {
+	processTemplate("repository_interface.tmpl", fmt.Sprintf("%s/domain/interfaces/repositories/%s_repository_interface.go", directory, data.ModelName), data)
+	processTemplate("repository.tmpl", fmt.Sprintf("%s/infra/db/repositories/%s_repository.go", directory, data.ModelName), data)
 }
 
-func getCreateProperties(modelName string, directory string) []string {
-	content, err := ioutil.ReadFile(fmt.Sprintf("%s/domain/DTO/%s/create.go", directory, modelName))
-
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	return getProperties(content)
-}
-
-func getProperties(content []byte) []string {
-	newContent := removeBracketsFromContent(content)
-	return getPropertiesFromLines(getLines(newContent))
-}
-
-func getPropertiesFromLines(lines []string) []string {
-	var properties []string
-	for _, line := range lines {
-		word := extractPropertyFromLine(line)
-		properties = getOnlyNonEmptyWords(word, properties)
-	}
-	return properties
-}
-
-func getOnlyNonEmptyWords(word string, properties []string) []string {
-	if word != "" {
-		properties = append(properties, word)
-	}
-	return properties
-}
-
-func extractPropertyFromLine(line string) string {
-	re := regexp.MustCompile("\t[^\\s]+")
-
-	match := re.FindStringSubmatch(line)
-	if match != nil {
-		return strings.Replace(match[0], "\t", "", -1)
-	}
-	return ""
-}
-
-func getLines(newContent string) []string {
-	lines := strings.Split(newContent, "\n")
-	return lines
-}
-
-func removeBracketsFromContent(content []byte) string {
-	newContent := strings.Split(string(content), "{")[1]
-	newContent = strings.Split(newContent, "}")[0]
-	return newContent
-}
-
-func processTemplate(fileName string, outputFile string, data Data) {
+func processTemplate(fileName string, outputFile string, data TemplateData) {
 	tmpl, ok := templates[fileName]
 	if !ok {
 		fmt.Println(ok)
 	}
 
 	var processed bytes.Buffer
-	err := tmpl.ExecuteTemplate(&processed, fileName, data)
-	if err != nil {
-		log.Fatalf("Unable to parse data into template: %v\n", err)
-	}
 
-	outputPath := outputFile
-	fmt.Println("Writing file: ", outputPath)
-	f, _ := os.Create(outputPath)
+	err := tmpl.ExecuteTemplate(&processed, fileName, data)
+	utils.Check(err, "Unable to parse data into template: ")
+
+	fmt.Println("Writing file: ", outputFile)
+
+	createOutputFile(outputFile, processed)
+}
+
+func createOutputFile(outputFile string, processed bytes.Buffer) {
+	f, _ := os.Create(outputFile)
 	w := bufio.NewWriter(f)
-	w.WriteString(processed.String())
+	w.WriteString(strings.ReplaceAll(processed.String(), "&#34;", `"`))
 	w.Flush()
 }

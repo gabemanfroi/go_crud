@@ -1,4 +1,4 @@
-package validations
+package generate
 
 func CreateMissingMap(firstArray []string) map[string]bool {
 	missingMap := make(map[string]bool)

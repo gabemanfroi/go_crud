@@ -1,0 +1,10 @@
+package models
+
+import "gorm.io/gorm"
+
+type {{ .PascalCasedModelName }} struct {
+	gorm.Model
+	{{- range $property := .ModelProperties }}
+	{{$property.Name}}  {{$property.DataType}} {{$property.GormString}}
+	{{- end}}
+}
