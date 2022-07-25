@@ -42,7 +42,7 @@ func (repository {{ .PascalCasedModelName }}Repository) GetAll() ([]*{{ .ModelNa
 	for _, {{ .ModelNameAbbreviation }} := range {{ .CamelCasedModelName }}s {
 		{{ .CamelCasedModelName }}DTOs = append({{ .CamelCasedModelName }}DTOs, &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
 		    {{- range $property :=  .ReadDTOProperties }}
-                {{ $property }}: {{ initials $.ModelName }}.{{$property}},
+                {{ $property.Name }}: {{ $.ModelNameAbbreviation }}.{{$property.Name}},
             {{- end}}
 		})
 	}
@@ -61,7 +61,7 @@ func (repository {{ .PascalCasedModelName }}Repository) GetById(id uint) (*{{ .M
 
 	return &{{ .ModelName }}.Read{{ .PascalCasedModelName }}DTO{
     {{- range $property := .ReadDTOProperties }}
-        {{ $property }}: {{ .ModelNameAbbreviation }}.{{$property}},
+        {{ $property.Name }}: {{ $.ModelNameAbbreviation }}.{{$property.Name}},
     {{- end}}
 	}, nil
 }

@@ -96,3 +96,29 @@ func GetNumber(c Content) uint {
 
 	return uint(parsedResult)
 }
+
+func GetSelectPropertyPromptContent(modelName string) Content {
+	return Content{
+		Label: "Choose which property of " + modelName + " you want to add to the DTO ",
+	}
+}
+
+func GetDtoNotFoundPromptContent(modelName string, name string) Content {
+	return Content{
+		Label: fmt.Sprintf("No %s DTO was found for the model %s would you like to create it?", name, modelName),
+	}
+}
+
+func GetMinimumValuePromptContent(name string) Content {
+	return Content{
+		ErrorMsg: "Enter a valid number.",
+		Label:    fmt.Sprintf("Please enter the minimum value for %s", name),
+	}
+}
+
+func GetMinimumLengthValuePromptContent(name string) Content {
+	return Content{
+		ErrorMsg: "Enter a valid number.",
+		Label:    fmt.Sprintf("Please enter the minimum length for %s", name),
+	}
+}

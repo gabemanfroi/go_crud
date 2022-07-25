@@ -9,22 +9,6 @@ import (
 	"strings"
 )
 
-var (
-	addAnotherRulePromptContent = prompt.Content{
-		Label: "Rule added, would you like to add more rules?",
-	}
-	rules          = []string{"required", "omitempty", "min", "max", "gte", "lte", "lt", "gt"}
-	numericOptions = []string{"min", "max", "gte", "lte", "lt", "gt"}
-	propertyMap    = make(map[string]ModelProperty)
-	propertyNames  []string
-)
-
-type ValidatorProperty struct {
-	Name           string
-	DataType       string
-	ValidateString string
-}
-
 func getCreateValidatorProperties(modelName string, modelProperties []ModelProperty) []ValidatorProperty {
 	return getValidatorProperties(modelName, modelProperties, "create")
 }
@@ -34,17 +18,22 @@ func getUpdateValidatorProperties(modelName string, modelProperties []ModelPrope
 }
 
 func getValidatorProperties(modelName string, modelProperties []ModelProperty, name string) []ValidatorProperty {
-	validatorsDir := fmt.Sprintf("%s/infra/validators/%s", utils.GetWorkingDirectory(), modelName)
-
-	utils.CreateDirectoryIfNotExists(validatorsDir)
-
-	content, err := ioutil.ReadFile(fmt.Sprintf("validatorsDir/%s.go", name))
+	content, err := getValidatorFileContent(modelName, name)
 
 	if err != nil {
 		return initValidatorCreationPrompt(modelName, modelProperties, name)
 	}
 
 	return getValidatorPropertiesFromFile(content)
+}
+
+func getValidatorFileContent(modelName string, name string) ([]byte, error) {
+	validatorsDir := fmt.Sprintf("%s/infra/validators/%s", utils.GetWorkingDirectory(), modelName)
+
+	utils.CreateDirectoryIfNotExists(validatorsDir)
+
+	content, err := ioutil.ReadFile(fmt.Sprintf("validatorsDir/%s.go", name))
+	return content, err
 }
 
 func initValidatorCreationPrompt(modelName string, modelProperties []ModelProperty, name string) []ValidatorProperty {
@@ -58,16 +47,15 @@ func initValidatorCreationPrompt(modelName string, modelProperties []ModelProper
 }
 
 func createValidator(modelName string, modelProperties []ModelProperty, name string) []ValidatorProperty {
-
 	var properties []ValidatorProperty
 
 	chooseAnotherProperty := true
 
-	initializePropertiesHandlers(modelProperties)
+	initializePropertiesAuxiliaryStructs(modelProperties)
 
 	for chooseAnotherProperty {
-		availableRules := []string{"required", "omitempty", "min", "max", "gte", "lte", "lt", "gt"}
-		createdProperty := createProperty(modelName, name, availableRules)
+
+		createdProperty := createValidatorProperty(modelName, name)
 		properties = append(properties, createdProperty)
 
 		if len(propertyNames) == 0 {
@@ -79,8 +67,8 @@ func createValidator(modelName string, modelProperties []ModelProperty, name str
 	return properties
 }
 
-func createProperty(modelName string, name string, availableRules []string) ValidatorProperty {
-
+func createValidatorProperty(modelName string, name string) ValidatorProperty {
+	availableRules := []string{"required", "omitempty", "min", "max", "gte", "lte", "lt", "gt"}
 	var selectedRules []string
 	chooseAnotherRule := true
 
@@ -95,11 +83,11 @@ func createProperty(modelName string, name string, availableRules []string) Vali
 		validateOptionsPromptContent := prompt.Content{
 			Label: "Choose the rule you want to apply for " + createdProperty.Name,
 		}
-		selectedRule := prompt.GetSelection(validateOptionsPromptContent, rules)
+		selectedRule := prompt.GetSelection(validateOptionsPromptContent, availableRules)
 		availableRules = utils.RemoveStringFromArray(availableRules, selectedRule)
 		for _, o := range numericOptions {
 			if selectedRule == o {
-				selectedRule = getSelectedRuleWithValue(selectedRule)
+				selectedRule = getFormatedNumericRule(selectedRule)
 				break
 			}
 		}
@@ -108,16 +96,16 @@ func createProperty(modelName string, name string, availableRules []string) Vali
 		chooseAnotherRule = prompt.GetBoolean(addAnotherRulePromptContent)
 	}
 
-	createdProperty.ValidateString = getFormatedString(selectedRules)
+	createdProperty.ValidateString = getFormatedValidateString(selectedRules)
 	propertyNames = utils.RemoveStringFromArray(propertyNames, createdProperty.Name)
 	return createdProperty
 }
 
-func getFormatedString(selectedRules []string) string {
+func getFormatedValidateString(selectedRules []string) string {
 	return fmt.Sprintf("`validate:\"%s\"`", strings.Join(selectedRules, ","))
 }
 
-func initializePropertiesHandlers(modelProperties []ModelProperty) {
+func initializePropertiesAuxiliaryStructs(modelProperties []ModelProperty) {
 	if len(propertyNames) > 0 {
 		propertyNames = nil
 	}
@@ -134,14 +122,15 @@ func initializeProperty(modelName string) ValidatorProperty {
 	}
 	selectedProperty := prompt.GetSelection(validatorPropertiesPromptContent, propertyNames)
 	createdProperty := ValidatorProperty{
-		Name:     propertyMap[selectedProperty].Name,
-		DataType: propertyMap[selectedProperty].DataType,
+		Property: Property{
+			Name:     propertyMap[selectedProperty].Name,
+			DataType: propertyMap[selectedProperty].DataType,
+		},
 	}
 	return createdProperty
 }
 
-func getSelectedRuleWithValue(selectedRule string) string {
-
+func getFormatedNumericRule(selectedRule string) string {
 	selectedRuleValuePromptContent := prompt.Content{
 		ErrorMsg: "Enter a valid number.",
 		Label:    fmt.Sprintf("Please enter the minimum value for %s", selectedRule),

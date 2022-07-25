@@ -5,87 +5,97 @@ import (
 	"github.com/gabemanfroi/go_crud/internal/prompt"
 	"github.com/gabemanfroi/go_crud/internal/utils"
 	"io/ioutil"
-)
-
-var (
-	propertyNamePromptContent = prompt.Content{
-		ErrorMsg: "Please provide a property name.",
-		Label:    "Enter a name for the property (Pascal Case, please)",
-	}
-	propertyDataTypePromptContent = prompt.Content{
-		Label: "Select the property Data type",
-	}
-	addAnotherPropertyPromptContent = prompt.Content{
-		Label: "Property added, would you like to add more properties?",
-	}
-	dataTypesOptions = []string{"string", "uint", "bool"}
+	"strings"
 )
 
 func getModelProperties(modelName string) []ModelProperty {
-
-	err := GetModel(modelName, utils.GetWorkingDirectory())
-
+	content, err := getModelFile(modelName, utils.GetWorkingDirectory())
 	if err != nil {
+		return initModelCreationPrompt(modelName)
+	}
+	return getExistingModelProperties(content)
+}
 
-		modelNotFoundPromptContent := prompt.Content{
-			Label: "Could not find a model named " + modelName + ", would you like to create one?",
-		}
-
-		if prompt.GetBoolean(modelNotFoundPromptContent) {
-			return CreateModel(modelName)
-		}
+func initModelCreationPrompt(modelName string) []ModelProperty {
+	modelNotFoundPromptContent := prompt.Content{
+		Label: "Could not find a model named " + modelName + ", would you like to create one?",
 	}
 
+	if prompt.GetBoolean(modelNotFoundPromptContent) {
+		return CreateModel(modelName)
+	}
 	return nil
 }
 
-func GetModel(modelName string, directory string) error {
-	_, err := ioutil.ReadFile(directory + "/domain/models/" + modelName + ".go")
-	return err
-}
-
-type ModelProperty struct {
-	Name          string
-	DataType      string
-	Nullable      bool
-	MinimumValue  uint
-	MinimumLength uint
-	GormString    string
+func getModelFile(modelName string, directory string) ([]byte, error) {
+	content, err := ioutil.ReadFile(directory + "/domain/models/" + modelName + ".go")
+	if err != nil {
+		return nil, err
+	}
+	return content, err
 }
 
 func CreateModel(modelName string) []ModelProperty {
 	fmt.Printf("Creating model %s\n", modelName)
-	return PopulateModelWithProperties()
+	return getModelWithProperties()
 }
 
-func PopulateModelWithProperties() []ModelProperty {
+func getModelWithProperties() []ModelProperty {
 	addOneMoreProperty := true
 
 	var properties []ModelProperty
 
 	for addOneMoreProperty {
-		properties = append(properties, CreateProperty())
+		createdProperty := createModelProperty()
+		addCreatedPropertyToArray(&properties, createdProperty)
 		addOneMoreProperty = prompt.GetBoolean(addAnotherPropertyPromptContent)
 	}
 	return properties
 }
 
-func CreateProperty() ModelProperty {
+func propertyIsRelational(property ModelProperty) bool {
+	return utils.ArrayContainsString(getExistingModels(), property.DataType)
+}
+
+func addCreatedPropertyToArray(properties *[]ModelProperty, createdProperty ModelProperty) {
+	*properties = append(*properties, createdProperty)
+	handleRelationalPropertyCreation(properties, createdProperty)
+}
+
+func handleRelationalPropertyCreation(properties *[]ModelProperty, createdProperty ModelProperty) {
+	if propertyIsRelational(createdProperty) {
+		*properties = append(*properties, ModelProperty{
+			Property: Property{
+				Name:     createdProperty.DataType + "Id",
+				DataType: "uint",
+			},
+			GormString: "`gorm:\"not null\"`",
+		})
+	}
+}
+
+func createModelProperty() ModelProperty {
 	var property ModelProperty
 	property.Name = prompt.GetInput(propertyNamePromptContent)
-	property.DataType = prompt.GetSelection(propertyDataTypePromptContent, dataTypesOptions)
+
+	property.DataType = prompt.GetSelection(propertyDataTypePromptContent, append(dataTypesOptions, getExistingModels()...))
+
+	handlePropertyNullability(&property)
+	return property
+}
+
+func handlePropertyNullability(property *ModelProperty) {
 	propertyNullablePromptContent := prompt.Content{
 		Label: fmt.Sprintf("Is %s nullable?", property.Name),
 	}
 	property.Nullable = prompt.GetBoolean(propertyNullablePromptContent)
 	if !property.Nullable {
-		property.GormString = ("`gorm:\"not null\"`")
+		property.GormString = "`gorm:\"not null\"`"
 		getMinimums(property)
 	}
-	return property
 }
 
-func getMinimums(property ModelProperty) {
+func getMinimums(property *ModelProperty) {
 	if property.DataType == "string" {
 		getMinimumLength(property)
 	}
@@ -94,18 +104,31 @@ func getMinimums(property ModelProperty) {
 	}
 }
 
-func getMinimumValue(property ModelProperty) {
-	propertyMinimumLengthPromptContent := prompt.Content{
-		ErrorMsg: "Enter a valid number.",
-		Label:    fmt.Sprintf("Please enter the minimum value for %s", property.Name),
-	}
-	property.MinimumValue = prompt.GetNumber(propertyMinimumLengthPromptContent)
+func getMinimumValue(property *ModelProperty) {
+	property.MinimumValue = prompt.GetNumber(prompt.GetMinimumValuePromptContent(property.Name))
 }
 
-func getMinimumLength(property ModelProperty) {
-	propertyMinimumLengthPromptContent := prompt.Content{
-		ErrorMsg: "Enter a valid number.",
-		Label:    fmt.Sprintf("Please enter the minimum length for %s", property.Name),
+func getMinimumLength(property *ModelProperty) {
+	property.MinimumLength = prompt.GetNumber(prompt.GetMinimumLengthValuePromptContent(property.Name))
+}
+
+func getExistingModels() []string {
+	var models []string
+	files, err := ioutil.ReadDir(fmt.Sprintf("%s/domain/models", utils.GetWorkingDirectory()))
+
+	utils.Check(err, "could not read from dir")
+
+	for _, f := range files {
+		modelName := strings.Split(utils.SnakeToPascalCase(f.Name()), ".")[0]
+		if modelName != "README" {
+			models = append(models, modelName)
+		}
+
 	}
-	property.MinimumLength = prompt.GetNumber(propertyMinimumLengthPromptContent)
+
+	return models
+}
+
+func getExistingModelProperties(file []byte) []ModelProperty {
+	return getModelPropertiesFromFile(file)
 }

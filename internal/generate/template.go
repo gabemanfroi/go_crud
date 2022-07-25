@@ -13,20 +13,6 @@ import (
 	"strings"
 )
 
-type TemplateData struct {
-	CamelCasedModelName       string
-	ModelNameAbbreviation     string
-	PascalCasedModelName      string
-	SnakeCasedModelName       string
-	ModelName                 string
-	UpdateDTOProperties       []DTOProperty
-	CreateDTOProperties       []DTOProperty
-	ReadDTOProperties         []DTOProperty
-	CreateValidatorProperties []ValidatorProperty
-	UpdateValidatorProperties []ValidatorProperty
-	ModelProperties           []ModelProperty
-}
-
 const (
 	templatesDir = "templates"
 )
@@ -37,6 +23,7 @@ var (
 )
 
 func Process(modelName string) {
+
 	loadTemplates()
 	processTemplates(utils.GetWorkingDirectory(), createTemplateData(modelName))
 }
@@ -70,8 +57,8 @@ func createTemplateData(modelName string) TemplateData {
 	data.ReadDTOProperties = getReadDTOProperties(modelName, data.ModelProperties)
 	data.CreateValidatorProperties = getCreateValidatorProperties(modelName, data.ModelProperties)
 	data.UpdateValidatorProperties = getUpdateValidatorProperties(modelName, data.ModelProperties)
-	data.PascalCasedModelName = GetPascalCasedModelName(modelName)
-	data.CamelCasedModelName = GetCamelCasedModelName(modelName)
+	data.PascalCasedModelName = utils.SnakeToPascalCase(modelName)
+	data.CamelCasedModelName = utils.SnakeToCamelCase(modelName)
 	data.SnakeCasedModelName = modelName
 	data.ModelNameAbbreviation = modelName[0:1]
 	data.ModelName = modelName
